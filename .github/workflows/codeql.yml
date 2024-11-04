@@ -72,7 +72,7 @@ jobs:
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
-        build-mode: ${{ matrix.build-mode }}
+        # build-mode: ${{ matrix.build-mode }}
         debug: true
         
     # ℹ️ Command-line programs to run using the OS shell.
@@ -88,9 +88,8 @@ jobs:
     #     ./prebuild.cmd
     #     pwsh ./fxd.ps1 gen -game five       
     #     "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MsBuild.exe" ".\code\build\five\CitizenMP.sln" -t:build -restore -property:RestorePackagesConfig=true -property:preferredtoolarchitecture=x64 -property:configuration=release -maxCpuCount:4
-        
-    - name: Build Code
-      if: matrix.build-mode == 'manual'
+    - if: matrix.build-mode == 'manual'     
+      name: Build Cpp Code      
       run: ./.github/workflows/ci/build_windows.sh
       
     - name: Perform CodeQL Analysis
