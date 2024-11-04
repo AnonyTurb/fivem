@@ -22,7 +22,7 @@ on:
 
 jobs:
   build:
-    uses: /.github/workflows/ci_build.yml@master
+    uses: ./.github/workflows/ci_build.yml
   analyze:
     name: Analyze (${{ matrix.language }})
     # Runner size impacts CodeQL analysis time. To learn more, please see:
