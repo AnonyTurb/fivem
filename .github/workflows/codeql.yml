@@ -46,7 +46,7 @@ jobs:
       matrix:
         include:
         - language: c-cpp
-          build-mode: manual
+          build-mode: autobuild
         - language: csharp
           build-mode: autobuild
         - language: javascript-typescript
@@ -88,9 +88,9 @@ jobs:
     #     ./prebuild.cmd
     #     pwsh ./fxd.ps1 gen -game five       
     #     "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MsBuild.exe" ".\code\build\five\CitizenMP.sln" -t:build -restore -property:RestorePackagesConfig=true -property:preferredtoolarchitecture=x64 -property:configuration=release -maxCpuCount:4
-    - if: matrix.build-mode == 'manual'     
-      name: Build Cpp Code      
-      uses: ./.github/workflows/ci_build.yml
+    # - if: matrix.build-mode == 'manual'     
+    #   name: Build Cpp Code      
+    #   uses: ./.github/workflows/ci_build.yml
       
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
