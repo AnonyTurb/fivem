@@ -89,10 +89,10 @@ jobs:
     #     pwsh ./fxd.ps1 gen -game five       
     #     "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MsBuild.exe" ".\code\build\five\CitizenMP.sln" -t:build -restore -property:RestorePackagesConfig=true -property:preferredtoolarchitecture=x64 -property:configuration=release -maxCpuCount:4
         
-    - name: Manual build Cpp
-       if:matrix.build-mode == 'manual'
-       uses:./.github/workflows/ci_build.yml
-    
+    - name: Build Code
+      if: matrix.build-mode == 'manual'
+      run: ./.github/workflows/ci/build_windows.sh
+      
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
