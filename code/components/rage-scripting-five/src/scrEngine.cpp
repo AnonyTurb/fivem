@@ -19,8 +19,7 @@
 
 #include <unordered_set>
 
-extern void PointerArgumentSafety();
-extern bool storyMode;
+static bool storyMode;
 
 #if __has_include("scrEngineStubs.h")
 #include <scrEngineStubs.h>
@@ -389,10 +388,6 @@ static InitFunction initFunction([] ()
 
 		doReg();
 
-		PointerArgumentSafety();
-		g_fastPathMap.clear();
-		doReg();
-
 		for (auto& entry : g_onScriptInitQueue)
 		{
 			entry();
@@ -457,7 +452,7 @@ static int(*g_origReturnTrue)(void* a1, void* a2);
 
 static int ReturnTrueFromScript(void* a1, void* a2)
 {
-	if (Instance<ICoreGameInit>::Get()->HasVariable("storyMode"))
+	if (storyMode)
 	{
 		return g_origReturnTrue(a1, a2);
 	}
@@ -481,7 +476,7 @@ static int(*g_origNoScript)(void*, int);
 
 static int JustNoScript(GtaThread* thread, int a2)
 {
-	if (Instance<ICoreGameInit>::Get()->HasVariable("storyMode"))
+	if (storyMode)
 	{
 		return g_origNoScript(thread, a2);
 	}
@@ -536,14 +531,39 @@ static InitFunction initFunction([]
 
 static HookFunction hookFunction([] ()
 {
-	char* location = xbr::IsGameBuildOrGreater<2545>() ? hook::pattern("48 8B C8 EB 03 49 8B CD 48 8B 05").count(1).get(0).get<char>(11) : hook::pattern("48 8B C8 EB 03 48 8B CB 48 8B 05").count(1).get(0).get<char>(11);
+	Instance<ICoreGameInit>::Get()->OnSetVariable.Connect([](const std::string& name, bool value)
+	{
+		if (name == "storyMode")
+		{
+			storyMode = value;
+		}
+	});
+
+	char* location = nullptr;
+
+	if (xbr::IsGameBuildOrGreater<3258>())
+	{
+		location = hook::pattern("48 8B C8 EB ? 33 C9 48 8B 05").count(1).get(0).get<char>(10);
+	}
+	else if (xbr::IsGameBuildOrGreater<2545>())
+	{
+		location = hook::pattern("48 8B C8 EB 03 49 8B CD 48 8B 05").count(1).get(0).get<char>(11);
+	}
+	else
+	{
+		location = hook::pattern("48 8B C8 EB 03 48 8B CB 48 8B 05").count(1).get(0).get<char>(11);
+	}
 
 	scrThreadCollection = reinterpret_cast<decltype(scrThreadCollection)>(location + *(int32_t*)location + 4);
 
 	activeThreadTlsOffset = *hook::pattern("48 8B 04 D0 4A 8B 14 00 48 8B 01 F3 44 0F 2C 42 20").count(1).get(0).get<uint32_t>(-4);
 
 	{
-		if (xbr::IsGameBuildOrGreater<2612>())
+		if (xbr::IsGameBuildOrGreater<3258>())
+		{
+			scrThreadId = hook::get_address<uint32_t*>(hook::get_pattern("8B 15 ? ? ? ? 48 8B 05 ? ? ? ? FF C2 89 15 ? ? ? ? 48 8B 0C F8", 2));
+		}
+		else if (xbr::IsGameBuildOrGreater<2612>())
 		{
 			scrThreadId = hook::get_address<uint32_t*>(hook::get_pattern("8B 15 ? ? ? ? 48 8B 05 ? ? ? ? FF C2 89 15 ? ? ? ? 48 8B 0C D8", 2));
 		}

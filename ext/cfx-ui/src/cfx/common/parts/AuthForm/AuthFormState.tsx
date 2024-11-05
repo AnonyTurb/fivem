@@ -1,23 +1,23 @@
 /* eslint-disable camelcase */
+import {
+  Button,
+  Icons,
+  Indicator,
+  Text,
+  returnTrue,
+} from '@cfx-dev/ui-components';
 import { inject, injectable } from 'inversify';
 import { makeAutoObservable, reaction } from 'mobx';
 import React from 'react';
 
-import { GameName } from 'cfx/base/game';
-import { currentGameNameIs } from 'cfx/base/gameRuntime';
 import { useServiceResolver } from 'cfx/base/servicesContainer';
 import { IAccountService } from 'cfx/common/services/account/account.service';
 import { SSOAuthCompleteEvent } from 'cfx/common/services/account/events';
 import { LoginStatus, RegisterStatus } from 'cfx/common/services/account/types';
 import { $L } from 'cfx/common/services/intl/l10n';
 import { LocaleKeyOrString, LocaleKeyOrString_nl2br } from 'cfx/common/services/intl/types';
-import { Button } from 'cfx/ui/Button/Button';
-import { Icons } from 'cfx/ui/Icons';
-import { Indicator } from 'cfx/ui/Indicator/Indicator';
-import { Text } from 'cfx/ui/Text/Text';
 import { OnlyLatest } from 'cfx/utils/async';
 import { dispose, Disposer, IDisposableObject } from 'cfx/utils/disposable';
-import { returnTrue } from 'cfx/utils/functional';
 import { useDisposableInstance } from 'cfx/utils/hooks';
 import { Optional } from 'cfx/utils/types';
 
@@ -116,10 +116,6 @@ class AuthFormState {
   }
 
   get showExternalAuthButton(): boolean {
-    if (!currentGameNameIs(GameName.FiveM)) {
-      return false;
-    }
-
     return this.isLogIn;
   }
 
@@ -213,7 +209,10 @@ class AuthFormState {
       ),
     );
 
-    this.email = this.toDispose.register(new FieldController((email) => this.accountService.getEmailError(email)));
+    this.email = this.toDispose.register(new FieldController((email) => this.accountService.getEmailError(
+      email,
+      this.isRegistration,
+    )));
 
     this.toDispose.add(
       reaction(

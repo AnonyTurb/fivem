@@ -1,6 +1,7 @@
 #include <StdInc.h>
 
 #include <Pool.h>
+#include <PoolSizesState.h>
 #include <Hooking.h>
 #include <MinHook.h>
 #include <Error.h>
@@ -57,6 +58,8 @@ static const char* poolEntriesTable[] = {
 	"AnimScenes",
 	"AnimSceneStore",
 	"AnimStore",
+	"atDGameServerTransactionNode",
+	"atDNetEventNode",
 	"atDScriptObjectNode",
 	"AttachmentExtension",
 	"audDynMixPatch",
@@ -70,6 +73,7 @@ static const char* poolEntriesTable[] = {
 	"Building",
 	"CActionCache",
 	"CActionConfigInfo",
+	"CAIHandlingInfo",
 	"CAimHelper",
 	"CAimSolver::InternalState",
 	"CAimSolver",
@@ -146,6 +150,8 @@ static const char* poolEntriesTable[] = {
 	"CEmotionalLocoHelper",
 	"CEntityGameInfoComponent",
 	"CEvent",
+	"CEventNetwork",
+	"CEventUi",
 	"CExplosionAttr",
 	"CExplosionExtensionComponent",
 	"CExpressionExtensionComponent",
@@ -159,6 +165,7 @@ static const char* poolEntriesTable[] = {
 	"CFragObjectAnimExtensionComponent",
 	"CFullBodySolver",
 	"CGameOwnership",
+	"CGameScriptHandler",
 	"CGameScriptHandlerNetwork",
 	"CGameScriptResource",
 	"CGpsNumNodesStored",
@@ -166,6 +173,7 @@ static const char* poolEntriesTable[] = {
 	"CGrappleClipRequestHelper",
 	"CGroupScenario",
 	"CGuidComponent",
+	"CHandlingObject",
 	"CHealthComponent",
 	"CHighHeelSolver",
 	"CHorseEquipmentInventoryItem",
@@ -196,6 +204,26 @@ static const char* poolEntriesTable[] = {
 	"CMoveAnimatedBuilding",
 	"CMoveObject",
 	"CNavObstructionPath",
+	"CNetObjAnimScene",
+	"CNetObjCombatDirector",
+	"CNetObjDoor",
+	"CNetObjGroupScenario",
+	"CNetObjGuardZone",
+	"CNetObjHerd",
+	"CNetObjIncident",
+	"CNetObjObject",
+	"CNetObjPedBase",
+	"CNetObjPedGroup",
+	"CNetObjPedSharedTargeting",
+	"CNetObjPersistent",
+	"CNetObjPickupPlacement",
+	"CNetObjPlayer",
+	"CNetObjProjectile",
+	"CNetObjPropSet",
+	"CNetObjStatsTracker",
+	"CNetObjVehicle",
+	"CNetObjWorldState",
+	"CNetworkTrainTrackJunctionSwitchWorldStateData",
 	"CObjectAnimationComponent",
 	"CObjectAutoStartAnimComponent",
 	"CObjectAutoStartAnimExtensionComponent",
@@ -226,6 +254,7 @@ static const char* poolEntriesTable[] = {
 	"CPedAnimalTailComponent",
 	"CPedAnimationComponent",
 	"CPedAttributeComponent",
+	"CPedAudioComponent",
 	"CPedAvoidanceComponent",
 	"CPedBreatheComponent",
 	"CPedClothComponent",
@@ -252,9 +281,11 @@ static const char* poolEntriesTable[] = {
 	"CPedMotionComponent",
 	"CPedMotivationComponent",
 	"CPedPhysicsComponent",
+	"CPedPlayerComponent",
 	"CPedProjDecalComponent",
 	"CPedRagdollComponent",
 	"CPedScriptDataComponent",
+	"CPedScriptedTaskRecordData",
 	"CPedSharedTargeting",
 	"CPedStaminaComponent",
 	"CPedTargetingComponent",
@@ -271,6 +302,8 @@ static const char* poolEntriesTable[] = {
 	"CPersistentCharacter",
 	"CPersistentCharacterGroupInfo",
 	"CPersistentCharacterInfo",
+	"CPhysicalPhysicsComponent",
+	"CPhysicsComponent",
 	"CPickup",
 	"CPickupData",
 	"CPickupPlacement",
@@ -324,6 +357,7 @@ static const char* poolEntriesTable[] = {
 	"CSatchelItem",
 	"CScenarioClusterSpawnedTrackingData",
 	"CScenarioInfo",
+	"CScenarioPoint",
 	"CScenarioPointChainUseInfo",
 	"CScenarioPointExtraData",
 	"CScenarioPropManager::ActiveSchedule",
@@ -340,6 +374,7 @@ static const char* poolEntriesTable[] = {
 	"CSquad",
 	"CStairsExtension",
 	"CStairsExtensionComponent",
+	"CStatEvent",
 	"CStirrupSolver",
 	"CStuntHelper",
 	"CStuntJump",
@@ -350,6 +385,7 @@ static const char* poolEntriesTable[] = {
 	"CTask",
 	"CTaskConversationHelper",
 	"CTaskNetworkComponent",
+	"CTaskSequenceList",
 	"CTaskUseScenarioEntityExtension",
 	"CTerrainAdaptationHelper",
 	"CThreatenedHelper",
@@ -370,6 +406,7 @@ static const char* poolEntriesTable[] = {
 	"CustomShaderEffectTreeType",
 	"CutsceneStore",
 	"CutSceneStore",
+	"CVehicle",
 	"CVehicleAnimationComponent",
 	"CVehicleChaseDirector",
 	"CVehicleClipRequestHelper",
@@ -420,6 +457,8 @@ static const char* poolEntriesTable[] = {
 	"fwAnimDirectorComponentRagDoll",
 	"fwAnimDirectorComponentReplay",
 	"fwArchetypePooledMap",
+	"fwClothCollisionsExtension",
+	"fwContainerLod",
 	"fwCreatureComponent",
 	"fwDynamicArchetypeComponent",
 	"fwDynamicEntityComponent",
@@ -485,6 +524,7 @@ static const char* poolEntriesTable[] = {
 	"NavMeshes",
 	"NavMeshRoute",
 	"naVocalization",
+	"netGameEvent",
 	"netScriptSerialisationPlan_ExtraLarge",
 	"netScriptSerialisationPlan_Large",
 	"netScriptSerialisationPlan_Small",
@@ -653,6 +693,21 @@ void WrapLevelLoad(const char* r)
 	g_origLevelLoad(r);
 }
 
+int64_t(*g_origGetSizeOfPool)(void*, uint32_t, int);
+
+static int64_t GetSizeOfPool(void* configManager, uint32_t poolHash, int defaultSize)
+{
+	int64_t size = g_origGetSizeOfPool(configManager, poolHash, defaultSize);
+
+	auto sizeIncreaseEntry = fx::PoolSizeManager::GetIncreaseRequest().find(poolEntries.LookupHash(poolHash));
+	if (sizeIncreaseEntry != fx::PoolSizeManager::GetIncreaseRequest().end())
+	{
+		size += sizeIncreaseEntry->second;
+	}
+
+	return size;
+}
+
 static HookFunction hookFunction([]()
 {
 	auto generateAndCallStub = [](hook::pattern_match match, int callOffset, uint32_t hash, bool isAssetStore)
@@ -743,6 +798,7 @@ static HookFunction hookFunction([]()
 	MH_Initialize();
 	MH_CreateHook(hook::get_pattern("4C 63 41 1C 4C 8B D1 49 3B D0 76", -4), PoolAllocateWrap, (void**)&g_origPoolAllocate);
 	MH_CreateHook(hook::get_pattern("8B 41 28 A9 00 00 00 C0 74", -15), PoolDtorWrap, (void**)&g_origPoolDtor);
+	MH_CreateHook(hook::get_pattern("83 79 ? ? 44 8B D2 74 ? 33 D2 41 8B C2 F7 71 ? 48 8B 41 ? 48 8B 0C D0 EB ? 44 3B 11 74 ? 48 8B 49 ? 48 85 C9 75 ? 48 85 C9 74 ? 8B 01"), GetSizeOfPool, (void**)&g_origGetSizeOfPool);
 	MH_EnableHook(MH_ALL_HOOKS);
 
 	// raw sfe reg from non-startup
