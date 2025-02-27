@@ -17,6 +17,7 @@
 
 #include <CoreConsole.h>
 #include <CrossBuildRuntime.h>
+#include <CustomRtti.h>
 
 static volatile void* g_dummyState;
 
@@ -90,36 +91,6 @@ intptr_t VerifyNetObj2(char* a1, int a2)
 	}
 
 	return origVerifyNetObj2(a1, a2);
-}
-
-struct VirtualBase
-{
-	virtual ~VirtualBase() {}
-};
-
-struct VirtualDerivative : public VirtualBase
-{
-	virtual ~VirtualDerivative() override {}
-};
-
-std::string GetType(void* d)
-{
-	VirtualBase* self = (VirtualBase*)d;
-
-	std::string typeName = fmt::sprintf("unknown (vtable %p)", (void*)hook::get_unadjusted(*(void**)self));
-
-	if (!xbr::IsGameBuildOrGreater<2802>())
-	{
-		try
-		{
-			typeName = typeid(*self).name();
-		}
-		catch (std::__non_rtti_object&)
-		{
-		}
-	}
-
-	return typeName;
 }
 
 static void(*g_origUnsetGameObj)(void*, void*, bool, bool);
@@ -527,21 +498,6 @@ void ShiftWeaponInfoBlobsDown(CWeaponInfoBlob* pArray[], uint16_t startIndex)
 	}
 }
 
-static const uint64_t* (*origMILookup)(void* archetype);
-
-static const uint64_t* SafeMILookup(void* archetype)
-{
-	auto mi = origMILookup(archetype);
-
-	if (!mi)
-	{
-		static const uint64_t noArchetype = 0xFFFFFFFFFFFFFFFF;
-		mi = &noArchetype;
-	}
-
-	return mi;
-}
-
 struct clockInfo
 {
 	char pad[12];
@@ -598,13 +554,6 @@ static bool fwClipset_GetClipItem_Caller(void* moveTask, unsigned int a2 /*'2'*/
 
 static HookFunction hookFunction{[] ()
 {
-	// CModelInfoStreamingModule LookupModelId null return
-	{
-		auto location = hook::get_pattern("48 85 C0 74 2D 48 8B C8 E8 ? ? ? ? 8B 00", 8);
-		hook::set_call(&origMILookup, location);
-		hook::call(location, SafeMILookup);
-	}
-
 	// Clear out unused CWeaponInfoBlob when the array is shifted. This leads to a crash when another blob inserts in to the unused position
 	{
 		auto location = hook::get_pattern<char>("E8 ? ? ? ? FF CD 0F B7 05 ? ? ? ?");
@@ -804,8 +753,8 @@ static HookFunction hookFunction{[] ()
 			// check if this is a composite bound
 			if (*(uint8_t*)(bound + 16) != 10) // actually 10, but to verify this works
 			{
-				auto boundType = GetType(bound);
-				auto instType = GetType(inst);
+				auto boundType = SearchTypeName(bound, true);
+				auto instType = SearchTypeName(inst, true);
 
 				std::string frag = "<unknown>";
 

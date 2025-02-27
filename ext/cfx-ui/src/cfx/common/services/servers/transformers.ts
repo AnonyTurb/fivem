@@ -1,3 +1,5 @@
+import { isFalseString } from '@cfx-dev/ui-components';
+
 import {
   DEFAULT_SERVER_LOCALE,
   DEFAULT_SERVER_LOCALE_COUNTRY,
@@ -8,7 +10,6 @@ import {
   normalizeSearchString,
 } from 'cfx/base/serverUtils';
 import { arrayAt } from 'cfx/utils/array';
-import { isFalseString } from 'cfx/utils/string';
 
 import { master } from './source/api/master';
 import { IArrayCategoryMatcher, IListableServerView, IStringCategoryMatcher } from './source/types';
@@ -20,6 +21,13 @@ import {
   ServerPureLevel,
   ServerViewDetailsLevel,
 } from './types';
+
+// Add new convars to hide here. All sv_* convars filtered out by default.
+const convarsToHide = new Set([
+  'mapname', 
+  'onesync', 
+  'gametype', 
+]);
 
 export function serverAddress2ServerView(address: string): IServerView {
   const fakeHostname = `⚠️ Server is loading or failed to load (${address}) ⚠️`;
@@ -186,6 +194,10 @@ function getSortableName(searchableName: string): string {
     .toLowerCase();
 }
 
+function shouldVarBeShown(key: string): boolean {
+  return !convarsToHide.has(key) && !key.startsWith('sv_');
+}
+
 type VarsView = Partial<
   Pick<
     IServerView,
@@ -293,20 +305,11 @@ export function processServerDataVariables(vars?: IServer['data']['vars']): Vars
       }
       case key === 'sv_pureLevel': {
         view.pureLevel = value as ServerPureLevel;
-
         continue;
       }
-
-      case key === 'sv_disableClientReplays':
-      case key === 'onesync':
-      case key === 'gametype':
-      case key === 'mapname':
-      case key === 'sv_enhancedHostSupport':
-      case key === 'sv_lan':
-      case key === 'sv_maxClients': {
+      case !shouldVarBeShown(key): {
         continue;
       }
-
       case lckey.includes('banner_'):
       case lckey.includes('sv_project'):
       case lckey.includes('version'):

@@ -3,32 +3,6 @@
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/wstringize.hpp>
 
-#ifdef GTA_FIVE
-#define GAME_BUILDS \
-	(3095) \
-	(2944) \
-	(2802) \
-	(2699) \
-	(2612) \
-	(2545) \
-	(2372) \
-	(2189) \
-	(2060) \
-	(1604)
-#elif defined(IS_RDR3)
-#define GAME_BUILDS \
-	(1491) \
-	(1436) \
-	(1355) \
-	(1311)
-#elif defined(GTA_NY)
-#define GAME_BUILDS \
-	(43)
-#else
-#define GAME_BUILDS \
-	(0)
-#endif
-
 namespace xbr
 {
 //
@@ -43,6 +17,41 @@ namespace xbr
 // servers. We keep track of minor game builds only for `GetCurrentGameBuildString` (i.e. for hint files).
 // When there's no entry for a specific major game build, revision "0" will be assumed in the relevant code.
 //
+
+inline unsigned int GetDefaultGTA5Build()
+{
+	return 3258;
+}
+
+inline unsigned int GetDefaultRDR3Build()
+{
+	return 1491;
+}
+
+#ifdef IS_FXSERVER
+inline const char* GetDefaultGTA5BuildString()
+{
+	return "3258";
+}
+
+inline const char* GetDefaultRDR3BuildString()
+{
+	return "1491";
+}
+#else
+inline unsigned int GetDefaultGameBuild()
+{
+#if defined(IS_RDR3)
+	return GetDefaultRDR3Build();
+#elif defined(GTA_FIVE)
+	return GetDefaultGTA5Build();
+#elif defined(GTA_NY)
+	return 43;
+#else
+	return 0;
+#endif
+}
+#endif
 
 struct GameBuildUniquifier
 {
@@ -85,23 +94,66 @@ inline std::pair<int, int> ParseGameBuildFromString(const std::string& buildStr)
 #ifndef XBR_BUILDS_ONLY
 namespace xbr
 {
-int GetGameBuildInit();
+int GetRequestedGameBuildInit();
+bool GetReplaceExecutableInit();
 
+#ifdef IS_FXSERVER
 inline int GetGameBuild()
 {
-#ifndef IS_FXSERVER
+	return 0;
+}
+
+inline int GetRequestedGameBuild()
+{
+	return 0;
+}
+
+inline bool GetReplaceExecutable()
+{
+	return false;
+}
+
+#else
+
+inline int GetRequestedGameBuild()
+{
 	static int buildNumber = -1;
 
 	if (buildNumber == -1)
 	{
-		buildNumber = GetGameBuildInit();
+		buildNumber = GetRequestedGameBuildInit();
 	}
 
 	return buildNumber;
-#else
-	return 0;
-#endif
 }
+
+inline bool GetReplaceExecutable()
+{
+	// Special build 1 with all DLCs turned off can not be achieved by replacing the executable.
+	static bool replaceExecutable = GetReplaceExecutableInit() && GetRequestedGameBuild() != 1;
+	return replaceExecutable;
+}
+
+inline int GetGameBuild()
+{
+	// For GTA5 we may want to ignore the CLI build request and use the latest build.
+	// In this case the requested build behavior will be achieved by partially loading old update.rpf files in UpdateRpfOverrideMount.cpp.
+#ifdef GTA_FIVE
+	if (!GetReplaceExecutable() && GetRequestedGameBuild() < GetDefaultGameBuild())
+	{
+		static int buildNumber = -1;
+
+		if (buildNumber == -1)
+		{
+			buildNumber = GetDefaultGameBuild();
+		}
+
+		return buildNumber;
+	}
+#endif
+	return GetRequestedGameBuild();
+}
+#endif
 
 #ifndef IS_FXSERVER
 inline std::string_view GetCurrentGameBuildString()
@@ -135,25 +187,6 @@ inline std::string_view GetCurrentGameBuildString()
 #endif
 }
 
-#define EXPAND2(_, __, x) \
-	inline bool BOOST_PP_CAT(Is, x)() \
-	{ \
-		static bool retval; \
-		static bool inited = false; \
-		\
-		if (!inited) \
-		{ \
-			retval = xbr::GetGameBuild() == x; \
-			inited = true; \
-		} \
-		\
-		return retval; \
-	}
-
-BOOST_PP_SEQ_FOR_EACH(EXPAND2, , GAME_BUILDS)
-
-#undef EXPAND2
-
 namespace xbr
 {
 template<int Build>
@@ -166,6 +199,29 @@ template<int Build>
 inline bool IsGameBuild()
 {
 	return GetGameBuild() == Build;
+}
+
+template<int Build>
+inline bool IsRequestedGameBuildOrGreater()
+{
+	return GetRequestedGameBuild() >= Build;
+}
+
+template<int Build>
+inline bool IsRequestedGameBuild()
+{
+	return GetRequestedGameBuild() == Build;
+}
+
+inline bool IsSupportedGameBuild(uint32_t targetBuild)
+{
+	switch (targetBuild)
+	{
+#define EXPAND(_, __, x) case x: return true;
+		BOOST_PP_SEQ_FOR_EACH(EXPAND, , GAME_BUILDS)
+#undef EXPAND
+	}
+	return false;
 }
 
 #ifdef _WIN32

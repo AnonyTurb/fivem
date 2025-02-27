@@ -31,13 +31,28 @@ namespace net
 	enum class NetBitVersion : uint64_t
 	{
 		/// <summary>
-		/// Last Net Version that has support. 
+		/// Last Net Version that has support.
 		/// </summary>
 		netVersion1 = BuildNetVersion(2021, 03, 29, 20, 50),
 
 		/// <summary>
 		/// Added new stateBagHandlerV2.
 		/// </summary>
-		netVersion2 = BuildNetVersion(2024, 05, 01, 00, 00)
+		netVersion2 = BuildNetVersion(2024, 05, 01, 00, 00),
+
+		/// <summary>
+		/// Improve onesync_population variable.
+		/// </summary>
+		netVersion3 = BuildNetVersion(2024, 07, 01, 00, 00),
+
+		/// <summary>
+		/// Added new netGameEventV2.
+		/// </summary>
+		netVersion4 = BuildNetVersion(2024, 8, 01, 00, 00),
+
+		/// <summary>
+		/// Added new msgReassembledEventV2.
+		/// </summary>
+		netVersion5 = BuildNetVersion(2025, 01, 01, 00, 00)
 	};
 }

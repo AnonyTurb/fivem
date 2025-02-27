@@ -6,6 +6,7 @@ component 'scrbind-formats'
 component 'scrbind-base'
 component 'nui-profiles'
 component 'profiles'
+component 'pool-sizes-state'
 
 if _OPTIONS['game'] == 'server' then
 	component 'citizen-server-main'
@@ -19,6 +20,7 @@ if _OPTIONS['game'] == 'server' then
 	component 'citizen-scripting-v8node'
 	component 'citizen-scripting-mono'
 	component 'citizen-scripting-mono-v2'
+	component 'citizen-scripting-node'
 	component 'citizen-server-instance'
 	component 'citizen-server-impl'
 	component 'citizen-server-state-fivesv'
@@ -66,12 +68,15 @@ else
 	if _OPTIONS['game'] ~= 'ny' then
 		component 'citizen-scripting-v8client'
 		component 'citizen-scripting-v8node'
+
+		component 'citizen-scripting-v8-v12.4'
 	end
 
 	--component 'n19ui'
 end
 
 component 'net-base'
+component 'net-packet'
 component 'net-tcp-server'
 component 'net-http-server'
 

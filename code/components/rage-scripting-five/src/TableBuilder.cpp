@@ -73,8 +73,19 @@ static void DoMapping()
 	char* buildString = (char*)(location + *(int32_t*)location + 4);
 
 	int versionIdx = -1;
-
-	if (strncmp(buildString, "Dec  8 2023", 11) == 0)
+	if (strncmp(buildString, "Dec  5 2024", 11) == 0)
+	{
+		versionIdx = 3407;
+	}
+	else if (strncmp(buildString, "Sep 10 2024", 11) == 0)
+	{
+		versionIdx = 3323;
+	}
+	else if (strncmp(buildString, "Jun 20 2024", 11) == 0)
+	{
+		versionIdx = 3258;
+	}
+	else if (strncmp(buildString, "Dec  8 2023", 11) == 0)
 	{
 		versionIdx = 3095;
 	}
@@ -188,31 +199,31 @@ static void DoMapping()
 		}
 	}
 
-	if (Is1604())
+	if (xbr::IsGameBuild<1604>())
 	{
 		assert(maxVersion == 19);
 	}
-	else if (Is2060())
+	else if (xbr::IsGameBuild<2060>())
 	{
 		assert(maxVersion == 22);
 	}
-	else if (Is2189())
+	else if (xbr::IsGameBuild<2189>())
 	{
 		assert(maxVersion == 23);
 	}
-	else if (Is2372())
+	else if (xbr::IsGameBuild<2372>())
 	{
 		assert(maxVersion == 24);
 	}
-	else if (Is2545() || Is2612() || Is2699())
+	else if (xbr::IsGameBuild<2545>() || xbr::IsGameBuild<2612>() || xbr::IsGameBuild<2699>())
 	{
 		assert(maxVersion == 25);
 	}
-	else if (Is2802())
+	else if (xbr::IsGameBuild<2802>())
 	{
 		assert(maxVersion == 26);
 	}
-	else if (Is2944() || Is3095())
+	else if (xbr::IsGameBuildOrGreater<2944>())
 	{
 		assert(maxVersion == 27);
 	}

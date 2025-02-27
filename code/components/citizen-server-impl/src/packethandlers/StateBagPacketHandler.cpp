@@ -12,17 +12,27 @@
 
 #include <state/ServerGameStatePublic.h>
 
-void StateBagPacketHandler::Handle(fx::ServerInstanceBase* instance, const fx::ClientSharedPtr& client,
-                                   net::Buffer& packet)
+bool StateBagPacketHandler::Process(fx::ServerInstanceBase* instance, const fx::ClientSharedPtr& client,
+                                   net::ByteReader& reader, fx::ENetPacketPtr& packet)
 {
-	gscomms_execute_callback_on_sync_thread([instance, client, packet = std::move(packet)]
+	if (instance->GetComponent<fx::ServerGameStatePublic>()->GetStateBagStrictMode())
 	{
-		HandleStateBagMessage(instance, client, packet);
+		return true;
+	}
+
+	const uint64_t offset = reader.GetOffset();
+	gscomms_execute_callback_on_sync_thread([instance, client, offset, packet]
+	{
+		net::ByteReader movedReader (packet->data, packet->dataLength);
+		movedReader.Seek(offset);
+		HandleStateBagMessage(instance, client, movedReader);
+		(void) packet;
 	});
+
+	return true;
 }
 
-void StateBagPacketHandler::HandleStateBagMessage(fx::ServerInstanceBase* instance, const fx::ClientSharedPtr& client,
-                                                  const net::Buffer& packet)
+void StateBagPacketHandler::HandleStateBagMessage(fx::ServerInstanceBase* instance, const fx::ClientSharedPtr& client, net::ByteReader& reader)
 {
 	static fx::RateLimiterStore<uint32_t, false> stateBagRateLimiterStore{
 		instance->GetComponent<console::Context>().GetRef()
@@ -86,7 +96,7 @@ void StateBagPacketHandler::HandleStateBagMessage(fx::ServerInstanceBase* instan
 				                  kStateBagRateFloodLimit, kStateBagRateFloodLimitBurst);
 			}
 
-			instance->GetComponent<fx::GameServer>()->DropClient(client, "Reliable state bag packet overflow.");
+			instance->GetComponent<fx::GameServer>()->DropClientWithReason(client, fx::serverDropResourceName, fx::ClientDropReason::STATE_BAG_RATE_LIMIT, "Reliable state bag packet overflow.");
 			return;
 		}
 
@@ -102,7 +112,7 @@ void StateBagPacketHandler::HandleStateBagMessage(fx::ServerInstanceBase* instan
 		return;
 	}
 
-	uint32_t dataLength = packet.GetRemainingBytes();
+	uint32_t dataLength = reader.GetRemaining();
 	if (!stateBagSizeRateLimiter->Consume(netId, double(dataLength)))
 	{
 		if (!client->IsDropping())
@@ -122,7 +132,15 @@ void StateBagPacketHandler::HandleStateBagMessage(fx::ServerInstanceBase* instan
 				logChannel);
 		}
 
-		instance->GetComponent<fx::GameServer>()->DropClient(client, "Reliable state bag packet overflow.");
+		instance->GetComponent<fx::GameServer>()->DropClientWithReason(client, fx::serverDropResourceName, fx::ClientDropReason::STATE_BAG_RATE_LIMIT, "Reliable state bag packet overflow.");
+		return;
+	}
+
+	net::packet::StateBag clientStateBag;
+
+	if (!clientStateBag.Process(reader))
+	{
+		// this only happens when a malicious client sends packets not created from our client code
 		return;
 	}
 
@@ -131,9 +149,7 @@ void StateBagPacketHandler::HandleStateBagMessage(fx::ServerInstanceBase* instan
 	{
 		std::string bagNameOnFailure;
 
-		std::string_view packetData(reinterpret_cast<const char*>(packet.GetBuffer() + packet.GetCurOffset()),
-		                            packet.GetRemainingBytes());
-		stateBagComponent->HandlePacket(slotId, packetData, &bagNameOnFailure);
+		stateBagComponent->HandlePacket(slotId, clientStateBag.data, &bagNameOnFailure);
 
 		// state bag isn't present, apply conditions for automatic creation
 		if (!bagNameOnFailure.empty())
@@ -154,7 +170,7 @@ void StateBagPacketHandler::HandleStateBagMessage(fx::ServerInstanceBase* instan
 					}))
 					{
 						// second attempt, should go through now
-						stateBagComponent->HandlePacket(slotId, packetData);
+						stateBagComponent->HandlePacket(slotId, clientStateBag.data);
 					}
 				}
 			}
@@ -162,18 +178,30 @@ void StateBagPacketHandler::HandleStateBagMessage(fx::ServerInstanceBase* instan
 	}
 }
 
-void StateBagPacketHandlerV2::Handle(fx::ServerInstanceBase* instance, const fx::ClientSharedPtr& client,
-                                     net::Buffer& packet)
+bool StateBagPacketHandlerV2::Process(fx::ServerInstanceBase* instance, const fx::ClientSharedPtr& client,
+                                     net::ByteReader& reader, fx::ENetPacketPtr& packet)
 {
-	gscomms_execute_callback_on_sync_thread([instance, client, packet = std::move(packet)]
+	if (instance->GetComponent<fx::ServerGameStatePublic>()->GetStateBagStrictMode())
 	{
-		HandleStateBagMessage(instance, client, packet);
+		return true;
+	}
+
+	const uint64_t offset = reader.GetOffset();
+	gscomms_execute_callback_on_sync_thread([instance, client, offset, packet]
+	{
+		net::ByteReader movedReader (packet->data, packet->dataLength);
+		movedReader.Seek(offset);
+		HandleStateBagMessage(instance, client, movedReader);
+		(void) packet;
 	});
+
+	return true;
 }
 
-void StateBagPacketHandlerV2::HandleStateBagMessage(fx::ServerInstanceBase* instance, const fx::ClientSharedPtr& client,
-                                                    const net::Buffer& packet)
+void StateBagPacketHandlerV2::HandleStateBagMessage(fx::ServerInstanceBase* instance, const fx::ClientSharedPtr& client, net::ByteReader& reader)
 {
+	static size_t kMaxPacketSize = net::SerializableComponent::GetMaxSize<net::packet::StateBagV2>();
+	
 	static fx::RateLimiterStore<uint32_t, false> stateBagRateLimiterStore{
 		instance->GetComponent<console::Context>().GetRef()
 	};
@@ -236,7 +264,7 @@ void StateBagPacketHandlerV2::HandleStateBagMessage(fx::ServerInstanceBase* inst
 				                  kStateBagRateFloodLimit, kStateBagRateFloodLimitBurst);
 			}
 
-			instance->GetComponent<fx::GameServer>()->DropClient(client, "Reliable state bag packet overflow.");
+			instance->GetComponent<fx::GameServer>()->DropClientWithReason(client, fx::serverDropResourceName, fx::ClientDropReason::STATE_BAG_RATE_LIMIT, "Reliable state bag packet overflow.");
 			return;
 		}
 
@@ -252,7 +280,7 @@ void StateBagPacketHandlerV2::HandleStateBagMessage(fx::ServerInstanceBase* inst
 		return;
 	}
 
-	uint32_t dataLength = packet.GetRemainingBytes();
+	size_t dataLength = reader.GetRemaining();
 	if (!stateBagSizeRateLimiter->Consume(netId, double(dataLength)))
 	{
 		if (!client->IsDropping())
@@ -272,7 +300,14 @@ void StateBagPacketHandlerV2::HandleStateBagMessage(fx::ServerInstanceBase* inst
 				logChannel);
 		}
 
-		instance->GetComponent<fx::GameServer>()->DropClient(client, "Reliable state bag packet overflow.");
+		instance->GetComponent<fx::GameServer>()->DropClientWithReason(client, fx::serverDropResourceName, fx::ClientDropReason::STATE_BAG_RATE_LIMIT, "Reliable state bag packet overflow.");
+		return;
+	}
+
+	net::packet::StateBagV2 clientStateBag;
+	if (!clientStateBag.Process(reader))
+	{
+		// this only happens when a malicious client sends packets not created from our client code
 		return;
 	}
 
@@ -281,10 +316,7 @@ void StateBagPacketHandlerV2::HandleStateBagMessage(fx::ServerInstanceBase* inst
 	{
 		std::string_view bagNameOnFailure;
 
-		net::ByteReader reader(packet.GetBuffer() + packet.GetCurOffset(), packet.GetRemainingBytes());
-		fx::StateBagMessage message;
-		message.Process(reader);
-		stateBagComponent->HandlePacketV2(slotId, message, &bagNameOnFailure);
+		stateBagComponent->HandlePacketV2(slotId, clientStateBag, &bagNameOnFailure);
 
 		// state bag isn't present, apply conditions for automatic creation
 		if (!bagNameOnFailure.empty())
@@ -305,7 +337,7 @@ void StateBagPacketHandlerV2::HandleStateBagMessage(fx::ServerInstanceBase* inst
 					}))
 					{
 						// second attempt, should go through now
-						stateBagComponent->HandlePacketV2(slotId, message);
+						stateBagComponent->HandlePacketV2(slotId, clientStateBag);
 					}
 				}
 			}
